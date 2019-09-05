@@ -43,7 +43,7 @@ class Battery:
         OUTPUT: Pandas Dataframe
         '''
         
-        return pd.DataFrame({'datetime':self.datetime_curve, 'soc':self.soc_curve, 'power_output':self.power_curve, 'energy_output':self.energy_curve})
+        return pd.DataFrame({'datetime':self.datetime_curve, 'soc':self.soc_curve, 'power_input':self.power_curve, 'energy_input':self.energy_curve})
     
     def charge_with_energy(self, energy, warnings_on = True):
         '''
@@ -53,7 +53,7 @@ class Battery:
         Optionally prints out a warning if the amount of energy specified exceeds the possible amount.
         
         INPUT:
-        energy - amount of energy to be fed into the battery before charging losses (kWh)
+        energy - amount of energy to be fed into the battery from the system before charging losses (kWh)
         warnings_on (optional) - if True, the function gives a warning if the specified amount exceeds the possible limit or is negative
         
         OUTPUT: None
@@ -64,8 +64,8 @@ class Battery:
         # calculate amount of energy that can be charged based on the current soc and the battery capacity
         max_possible_charging_energy_soc = (1.0-self.soc)*self.capacity/self.eff_chg
         
-        # calculate amount of energy that can be charged based on the max battery system power
-        max_possible_charging_energy_power = self.power * self.eff_chg * self.timestep_minutes/60
+        # calculate amount of energy that can be charged based on the max battery system power; before losses
+        max_possible_charging_energy_power = self.power * self.timestep_minutes/60
         
         # take min value of the previous two
         max_possible_charging_energy = min(max_possible_charging_energy_soc, max_possible_charging_energy_power)
