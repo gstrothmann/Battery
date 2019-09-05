@@ -6,6 +6,7 @@ class Battery:
     def __init__(self, max_power = 1000, net_capacity = 1000, round_trip_efficiency = 0.92, initial_soc = 0.5, timestep_minutes = 60):
         
         from applications import Applications
+        from dimensioning import Dimensioning
         
         self.power = max_power
         self.capacity = net_capacity
@@ -19,6 +20,7 @@ class Battery:
         self.datetime_curve = []
         self.energy_curve = []
         self.applications = Applications(self)
+        self.dimensioning = Dimensioning(self)
         self.start_datetime = pd.datetime(2020,1,1,0,0)
     
     def reset(self):
