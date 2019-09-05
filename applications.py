@@ -66,4 +66,52 @@ class Applications:
                                      'volume_MWh':transaction_volume_list,
                                      'revenue_eur':transaction_revenue_list})
 
-        return df_arbitrage        
+        return df_arbitrage
+    
+    def peakshaving(self, loadcurve, peak_limit):
+        
+        '''
+        Uses the battery to reduce cunsumption peaks to the specified limit.
+        Whenever the loadcurve value is above the specified peak limit, the battery discharges to get the loadcurve to the peak limit.
+        When the loadcurve value drops below the peak limit, the battery is being charged if necessary.
+        
+        HINT: Usually the peak shaving application uses 15 min steps, make sure to set 
+        timestep_minutes=15 in that case. Also depending on the observed year, the variable
+        start_datetime can be adjusted accordingly, passing a pandas datetime object.
+        
+        INPUT:
+        loadcurve - list of customer loads (float) [kW]
+        peak_limit - customer load limit that must not be exceeded  (float) [kW]
+        
+        OUTPUT:
+        df_peakshaving - dataframe with original loadcurve, battery output, battery soc and new loadcurve
+        '''
+        
+        ps_datetime_list = []
+        ps_battery_power_list = []
+        ps_soc_list = []
+        
+        for load in loadcurve:
+            if load > peak_limit:
+                self.battery.discharge_with_power(load-peak_limit, warnings_on = False)
+                
+            else:
+                self.battery.charge_with_power(peak_limit-load, warnings_on = False)
+                
+            ps_datetime_list.append(self.battery.datetime_curve[-1])
+            ps_battery_power_list.append(self.battery.power_curve[-1])
+            ps_soc_list.append(self.battery.soc_curve[-1])
+            
+        resulting_loadcurve = [l+b for l,b in zip(loadcurve, ps_battery_power_list)]
+        
+        if max(resulting_loadcurve) > peak_limit:
+            print('WARNING: peak shaving was not successful')
+        
+        df_peakshaving = pd.DataFrame({'datetime':ps_datetime_list,
+                                       'original_loadcurve':loadcurve,
+                                       'battery_power':ps_battery_power_list,
+                                       'new_loadcurve':resulting_loadcurve,
+                                       'battery_soc':ps_soc_list})
+    
+        return df_peakshaving
+            

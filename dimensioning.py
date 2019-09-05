@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
+from battery import Battery
         
 
 class Dimensioning:
     def __init__(self, battery_object):
         
-        from battery import Battery
         self.battery = battery_object
 
     def show_soc(self):
