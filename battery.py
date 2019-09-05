@@ -238,3 +238,28 @@ class Battery:
         ''' 
         
         self.charge_with_power(0, warnings_on = False)
+        
+    def get_efc(self):
+        '''
+        Returns amount of equivalent full cycles based on the Battery SOC record. 
+        One equivalent full cycle is equal to one complete charge- and discharge cycle of the battery.
+        
+        INPUT: None
+        OUTPUT: efc - Equivalent full cycles of Battery (float)
+        ''' 
+        
+        efc = 0
+        if len(self.soc_curve) < 2:
+            efc = 0
+        else:
+            # create two soc-lists: one with a dropped first element, one with a dropped last element.
+            soc_curve_drop_first = self.soc_curve[1:]
+            soc_curve_drop_last = self.soc_curve[:-2]
+            
+            # create a list with the absolute values of the differences of these lists:
+            soc_curve_abs_diffs = [abs(f-l) for f,l in zip(soc_curve_drop_first, soc_curve_drop_last)]
+            
+            # calculate efc by adding the absolute differences and dividing by 2 (for charge- & discharge)
+            efc = sum(soc_curve_abs_diffs)/2
+            
+        return efc
