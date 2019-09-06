@@ -47,5 +47,9 @@ class Dimensioning:
         # set needed capacity to battery capacity
         self.battery.capacity = needed_capacity
         
-        return f'Battery power: {needed_power} kW, capacity: {needed_capacity} kWh'
+        # now re-run the peak shaving application with the correct capacity:
+        self.battery.reset()
+        self.battery.applications.peakshaving(loadcurve, peak_limit);
+        
+        return f'Battery power: {needed_power} kW, capacity: {needed_capacity} kWh, efc: {self.battery.get_efc()}'
             
