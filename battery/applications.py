@@ -1,4 +1,4 @@
-import pandas as pd
+﻿import pandas as pd
 import numpy as np
 from .battery import Battery
         
@@ -90,7 +90,8 @@ class Applications:
         ps_datetime_list = []
         ps_battery_power_list = []
         ps_soc_list = []
-        
+        self.battery.soc = 1.0
+
         for load in loadcurve:
             if load > peak_limit:
                 self.battery.discharge_with_power(load-peak_limit, warnings_on = False)
@@ -104,9 +105,6 @@ class Applications:
             
         resulting_loadcurve = [l+b for l,b in zip(loadcurve, ps_battery_power_list)]
         
-        if max(resulting_loadcurve) > peak_limit:
-            print('WARNING: peak shaving was not successful')
-        
         df_peakshaving = pd.DataFrame({'datetime':ps_datetime_list,
                                        'original_loadcurve':loadcurve,
                                        'battery_power':ps_battery_power_list,
@@ -114,4 +112,43 @@ class Applications:
                                        'battery_soc':ps_soc_list})
     
         return df_peakshaving
+    
+    def loadfollowing(self, production_curve, loadcurve):
+        '''
+        Modifies the battery object so that it has the minimum power and capacity
+        required in order to shift all the production to the consumption side that
+        is needed in order to supply the consumption side with 100% of the produced
+        energy.
+
+        INPUT:
+            production_curve - list of production values (float) [kW]
+            loadcurve - list of consumer loads (float) [kW]
+    
+        OUTPUT:
+            String with the needed battery power, capaicty and efc.
+            '''
+    
+        equivalent_peak_shaving_curve = pd.Series(loadcurve) - pd.Series(production_curve)
+        # the equivalent peak-shaving curve has the unfitted load as positive values and the unfitted production as negative values
+    
+        power_to_shift_up_by = abs(min(equivalent_peak_shaving_curve))
+        equivalent_peak_shaving_curve_shifted = equivalent_peak_shaving_curve + power_to_shift_up_by
+        # to perform peak shaving on this curve it is moved up so that it has no more positive values
+        
+        ps_curve = self.battery.applications.peakshaving(equivalent_peak_shaving_curve_shifted, power_to_shift_up_by)
+    
+        # Now shifting back down the resulting loadcurve:
+        new_loadcurve = pd.Series([max(0,e) for e in ps_curve['new_loadcurve'] - power_to_shift_up_by])
+        
+        df_loadfollowing = pd.DataFrame({'datetime': ps_curve['datetime'],
+                                         'original_loadcurve': loadcurve,
+                                         'uncovered_loadcurve': new_loadcurve,
+                                         'battery_soc': ps_curve.battery_soc})
+    
+        self_sufficiency = 1-(df_loadfollowing.uncovered_loadcurve.sum()/df_loadfollowing.original_loadcurve.sum())
+        own_consumption_ratio = self_sufficiency * sum(loadcurve) / sum(production_curve)
+    
+        print(f'Self-sufficiency: {100*round(self_sufficiency,3)} %, Own consumption ratio: {100*round(own_consumption_ratio,3)} %')
+    
+        return df_loadfollowing
             

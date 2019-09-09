@@ -12,7 +12,7 @@ class Battery:
         self.capacity = net_capacity
         self.eff_chg = np.sqrt(round_trip_efficiency)
         self.eff_dch = np.sqrt(round_trip_efficiency)
-        self.soc = 0.5
+        self.soc = initial_soc
         self.timestep_minutes = timestep_minutes
         self.efc = 0
         self.power_curve = []
