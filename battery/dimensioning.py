@@ -53,12 +53,13 @@ class Dimensioning:
         
         return f'Battery power: {needed_power} kW, capacity: {needed_capacity} kWh, efc: {self.battery.get_efc()}'
     
+    
     def loadfollowing(self, production_curve, loadcurve):
         '''
         Modifies the battery object so that it has the minimum power and capacity
         required in order to shift all the production to the consumption side that
         is needed in order to supply the consumption side with 100% of the produced
-        energy.
+        energy. Using the application loadfollowing will lead to self-sufficiency of 100%.
         
         INPUT:
         production_curve - list of production values (float) [kW]
@@ -67,10 +68,13 @@ class Dimensioning:
         OUTPUT:
         String with the needed battery power, capaicty and efc.
         '''
-        
-        equivalent_peak_shaving_curve = loadcurve - production_curve
+        equivalent_peak_shaving_curve = pd.Series(loadcurve) - pd.Series(production_curve)
+        # the equivalent peak-shaving curve has the unfitted load as positive values and the unfitted production as negative values
+    
         power_to_shift_up_by = abs(min(equivalent_peak_shaving_curve))
         equivalent_peak_shaving_curve_shifted = equivalent_peak_shaving_curve + power_to_shift_up_by
+        # to perform peak shaving on this curve it is moved up so that it has no more positive values
+        
         
         needed_dimensions = self.battery.dimensioning.peakshaving(equivalent_peak_shaving_curve_shifted, power_to_shift_up_by)
         
