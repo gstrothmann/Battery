@@ -151,4 +151,44 @@ class Applications:
         print(f'Self-sufficiency: {100*round(self_sufficiency,3)} %, Own consumption ratio: {100*round(own_consumption_ratio,3)} %')
     
         return df_loadfollowing
+    
+    def curtailment_avoidance(self, production_curve, peak_limit):
+        
+        '''
+        Uses the battery to store produced energy exceeding the defined limit.
+        Whenever the production value is above the specified peak limit, the battery is being charged.
+        When the production value drops below the peak limit, the battery is being discharged, respecting the defined peak limit.
+
+        INPUT:
+        production_curve - list of production values (float) [kW]
+        peak_limit - production load limit at which the battery is charged, if possible  (float) [kW]
+        
+        OUTPUT:
+        df_curtailment_avoidance - dataframe with original production curve, battery output, battery soc and new loadcurve
+        '''
+        
+        ps_datetime_list = []
+        ps_battery_power_list = []
+        ps_soc_list = []
+        self.battery.soc = 0.0
+
+        for production in production_curve:
+            if production > peak_limit:
+                self.battery.charge_with_power(production-peak_limit, warnings_on = False)
+                
+            else:
+                self.battery.discharge_with_power(peak_limit-production, warnings_on = False)
+                
+            ps_datetime_list.append(self.battery.datetime_curve[-1])
+            ps_battery_power_list.append(self.battery.power_curve[-1])
+            ps_soc_list.append(self.battery.soc_curve[-1])
             
+        resulting_production_curve = [p-b for p,b in zip(production_curve, ps_battery_power_list)]
+        
+        df_curtailment_avoidance = pd.DataFrame({'datetime':ps_datetime_list,
+                                       'original_production':production_curve,
+                                       'battery_power':ps_battery_power_list,
+                                       'new_production':resulting_production_curve,
+                                       'battery_soc':ps_soc_list})
+            
+        return df_curtailment_avoidance
