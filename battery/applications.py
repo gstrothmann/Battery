@@ -68,7 +68,7 @@ class Applications:
 
         return df_arbitrage
     
-    def peakshaving(self, loadcurve, peak_limit):
+    def peakshaving(self, loadcurve, peak_limit, atypic = False, high_load_times = []):
         
         '''
         Uses the battery to reduce cunsumption peaks to the specified limit.
@@ -92,24 +92,73 @@ class Applications:
         ps_soc_list = []
         self.battery.soc = 1.0
 
-        for load in loadcurve:
-            if load > peak_limit:
-                self.battery.discharge_with_power(load-peak_limit, warnings_on = False)
+        if atypic == False:
+            # 'standard' peak shaving:
+
+            for load in loadcurve:
+                if load > peak_limit:
+                    self.battery.discharge_with_power(load-peak_limit, warnings_on = False)
+                    
+                else:
+                    self.battery.charge_with_power(peak_limit-load, warnings_on = False)
+                    
+                ps_datetime_list.append(self.battery.datetime_curve[-1])
+                ps_battery_power_list.append(self.battery.power_curve[-1])
+                ps_soc_list.append(self.battery.soc_curve[-1])
                 
-            else:
-                self.battery.charge_with_power(peak_limit-load, warnings_on = False)
-                
-            ps_datetime_list.append(self.battery.datetime_curve[-1])
-            ps_battery_power_list.append(self.battery.power_curve[-1])
-            ps_soc_list.append(self.battery.soc_curve[-1])
+            resulting_loadcurve = [l+b for l,b in zip(loadcurve, ps_battery_power_list)]
             
-        resulting_loadcurve = [l+b for l,b in zip(loadcurve, ps_battery_power_list)]
-        
-        df_peakshaving = pd.DataFrame({'datetime':ps_datetime_list,
-                                       'original_loadcurve':loadcurve,
-                                       'battery_power':ps_battery_power_list,
-                                       'new_loadcurve':resulting_loadcurve,
-                                       'battery_soc':ps_soc_list})
+            df_peakshaving = pd.DataFrame({'datetime':ps_datetime_list,
+                                           'original_loadcurve':loadcurve,
+                                           'battery_power':ps_battery_power_list,
+                                           'new_loadcurve':resulting_loadcurve,
+                                           'battery_soc':ps_soc_list})
+    
+        else:
+            # atypic = True! Checking if high_load_times was passed:
+            if len(high_load_times) != len(loadcurve):
+                raise ValueError('high_load_times must have same length as loadcurve')
+                
+            # In the atypic grid use case, the peak_limit is only tried to be achieved during 
+            # high load times. If this is not successful with the given kW/kWh, a warning is 
+            # returned. 
+            
+            for load, ht in zip(loadcurve, high_load_times):
+                if ht and load > peak_limit:
+                    # In high load time the peak needs to be shaved.
+                    self.battery.discharge_with_power(load-peak_limit, warnings_on = False)
+                    
+                elif ht:
+                    # It is not high load time, but the power is far below the peak. Recharging.
+                    self.battery.charge_with_power(peak_limit-load, warnings_on = False)
+                    
+                else: self.battery.charge_max_possible()
+                    # No high load time. Battery may be charged as much as possible.
+                    
+                ps_datetime_list.append(self.battery.datetime_curve[-1])
+                ps_battery_power_list.append(self.battery.power_curve[-1])
+                ps_soc_list.append(self.battery.soc_curve[-1])
+                
+            resulting_loadcurve = [l+b for l,b in zip(loadcurve, ps_battery_power_list)]
+            
+            df_peakshaving = pd.DataFrame({'datetime':ps_datetime_list,
+                                           'original_loadcurve':loadcurve,
+                                           'battery_power':ps_battery_power_list,
+                                           'new_loadcurve':resulting_loadcurve,
+                                           'battery_soc':ps_soc_list})
+    
+            original_ht_consumption = [lc for lc,hlt in zip(loadcurve, high_load_times) if hlt == True]
+            new_ht_consumption = [lc for lc,hlt in zip(resulting_loadcurve, high_load_times) if hlt == True]
+            low_peak = np.max(loadcurve)
+            high_peak_original = np.max(original_ht_consumption)
+            high_peak_new = np.max(new_ht_consumption)
+            
+            if high_peak_new > peak_limit*1.001:
+                print('Peak Shaving not successful with given capacity')
+                    
+            print(f'Initial Erheblichkeit: {100*round((low_peak-high_peak_original)/high_peak_original,3)} %')
+            print(f'New Erheblichkeit: {100*round((low_peak-high_peak_new)/high_peak_new,3)} %')
+            print(f'Total peak reduction from {round(low_peak,1)} kW (standard) to {round(high_peak_new,1)} kW (atypic).')
     
         return df_peakshaving
     
